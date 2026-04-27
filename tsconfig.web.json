@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "strict": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "outDir": "out"
+  },
+  "include": ["src/renderer/**/*"]
+}

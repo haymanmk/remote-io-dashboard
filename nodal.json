@@ -1,0 +1,30 @@
+{
+  "id": "io.remote.dashboard",
+  "name": "Remote IO Dashboard",
+  "version": "0.1.0",
+  "sdkVersion": "^1.0.0",
+  "type": "standalone-tool",
+  "executable": "bin/start.js",
+  "settingsSchema": {
+    "type": "object",
+    "required": ["host"],
+    "properties": {
+      "host": {
+        "type": "string",
+        "title": "Device IP",
+        "default": "192.168.1.10"
+      },
+      "portOffset": {
+        "type": "integer",
+        "title": "Port Offset",
+        "description": "Effective TCP port = 8500 + offset",
+        "default": 0,
+        "minimum": 0,
+        "maximum": 65035
+      }
+    }
+  },
+  "permissions": ["network"],
+  "author": "Remote IO Dashboard",
+  "tags": ["io", "tcp", "hardware", "zephyr"]
+}
