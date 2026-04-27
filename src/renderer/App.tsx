@@ -9,6 +9,13 @@ import { useRemoteIO } from './context/RemoteIOContext'
 
 type Tab = 'inputs' | 'outputs' | 'leds' | 'uart' | 'settings'
 
+function statusColor(status: string): string {
+  if (status === 'OK') return 'var(--success)'
+  if (status.includes('UPDATE') || status.includes('CHECKING')) return 'var(--warning)'
+  if (status.includes('ERROR') || status.includes('FAIL')) return 'var(--danger)'
+  return 'var(--text-muted)'
+}
+
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'inputs',   label: 'Digital Inputs',  icon: '⬇' },
   { id: 'outputs',  label: 'Digital Outputs', icon: '⬆' },
@@ -47,6 +54,14 @@ export default function App() {
             <div style={styles.connectedBadge}>
               <span style={styles.connectedDot} />
               Live
+            </div>
+          )}
+          {state.deviceStatus !== null && state.connection === 'connected' && (
+            <div style={styles.statusBadge}>
+              <span style={styles.statusLabel}>Status</span>
+              <span style={{ ...styles.statusValue, color: statusColor(state.deviceStatus) }}>
+                {state.deviceStatus || '—'}
+              </span>
             </div>
           )}
         </nav>
@@ -122,6 +137,24 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 0 6px var(--success)',
     animation: 'pulse 2s infinite',
     flexShrink: 0,
+  },
+  statusBadge: {
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '6px 14px 10px',
+    gap: 2,
+  },
+  statusLabel: {
+    fontSize: 10,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+  },
+  statusValue: {
+    fontSize: 11,
+    fontFamily: 'monospace',
+    fontWeight: 600,
+    wordBreak: 'break-all' as const,
   },
   main: {
     flex: 1,

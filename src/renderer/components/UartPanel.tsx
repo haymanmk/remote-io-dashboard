@@ -16,12 +16,18 @@ function timestamp(): string {
   return new Date().toTimeString().slice(0, 8)
 }
 
+/** Replace CR/LF bytes with a printable symbol so the log stays on one line. */
+function displayText(text: string): string {
+  return text.replace(/\r\n/g, ' ↵').replace(/\r/g, ' ↵').replace(/\n/g, ' ↵')
+}
+
 function UartChannel({ channel }: { channel: number }) {
   const { state } = useRemoteIO()
   const cmds = useCommands()
   const [input, setInput] = useState('')
   const [log, setLog] = useState<LogEntry[]>([])
   const [baud, setBaud] = useState<number | null>(null)
+  const [appendCRLF, setAppendCRLF] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
   const disabled = state.connection !== 'connected'
 
@@ -52,8 +58,9 @@ function UartChannel({ channel }: { channel: number }) {
   }, [state.connection, channel])
 
   async function send() {
-    const payload = input.trim()
-    if (!payload || disabled) return
+    const text = input.trim()
+    if (!text || disabled) return
+    const payload = appendCRLF ? text + '\r\n' : text
     const result = await cmds.sendUart(channel, payload)
     if (result.ok) {
       setLog((prev) => [...prev.slice(-499), { dir: 'tx', channel, text: payload, ts: timestamp() }])
@@ -104,7 +111,7 @@ function UartChannel({ channel }: { channel: number }) {
               }}>
                 {entry.dir.toUpperCase()}
               </span>
-              <span style={styles.text}>{entry.text}</span>
+              <span style={styles.text}>{displayText(entry.text)}</span>
             </div>
           ))
         )}
@@ -120,6 +127,15 @@ function UartChannel({ channel }: { channel: number }) {
           disabled={disabled}
           spellCheck={false}
         />
+        <label style={styles.crlfLabel}>
+          <input
+            type="checkbox"
+            checked={appendCRLF}
+            onChange={(e) => setAppendCRLF(e.target.checked)}
+            style={{ margin: 0 }}
+          />
+          CR+LF
+        </label>
         <button
           style={{ ...styles.sendBtn, opacity: disabled ? 0.5 : 1 }}
           onClick={send}
@@ -271,6 +287,17 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12,
     fontFamily: 'monospace',
     outline: 'none',
+  },
+  crlfLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+    fontSize: 11,
+    fontFamily: 'monospace',
+    color: 'var(--text-secondary)',
+    cursor: 'pointer',
+    userSelect: 'none',
+    flexShrink: 0,
   },
   sendBtn: {
     background: 'var(--accent)',

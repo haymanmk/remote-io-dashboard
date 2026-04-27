@@ -47,15 +47,14 @@ export function DeviceSettings() {
     if (!connected) return
     setLoading(true)
     try {
-      const [ipR, portR, nmR, gwR, macR, b0R, b1R] = await Promise.all([
-        cmds.readIP(),
-        cmds.readPortOffset(),
-        cmds.readNetmask(),
-        cmds.readGateway(),
-        cmds.readMAC(),
-        cmds.readUartBaud(0),
-        cmds.readUartBaud(1),
-      ])
+      // Commands must be sequential — only one can be in-flight at a time
+      const ipR   = await cmds.readIP()
+      const portR = await cmds.readPortOffset()
+      const nmR   = await cmds.readNetmask()
+      const gwR   = await cmds.readGateway()
+      const macR  = await cmds.readMAC()
+      const b0R   = await cmds.readUartBaud(0)
+      const b1R   = await cmds.readUartBaud(1)
       setNet({
         ip:         parseIP(ipR.reply?.values),
         portOffset: portR.reply?.values?.[0] ?? '',

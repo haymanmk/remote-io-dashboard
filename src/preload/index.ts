@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 export type RemoteIOEvent =
   | { type: 'input-change'; pin: number; state: boolean }
   | { type: 'uart-data'; channel: number; payload: string }
+  | { type: 'status-update'; status: string }
   | { type: 'disconnected' }
   | { type: 'config-changed'; config: { host: string; portOffset: number } }
 
@@ -10,6 +11,7 @@ export interface ConnectResult {
   ok: boolean
   inputs?: boolean[]
   outputs?: boolean[]
+  status?: string
   error?: string
 }
 

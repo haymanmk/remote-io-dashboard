@@ -48,15 +48,17 @@ ipcMain.handle('remoteio:connect', async (_evt, host: string, portOffset: number
     config.host = host
     config.portOffset = portOffset
     await client.connect(host, port)
-    // Subscribe all 16 inputs for async S5 notifications
-    await client.sendCommand('W', 5, null, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
-    // Read initial input state
+    // Read initial state BEFORE subscribing so S5 events can only arrive after CONNECTED is dispatched
     const inputReply = await client.sendCommand('R', 3, null, -1)
     const inputs = inputReply.kind === 'read' ? parseBitfield(inputReply.values) : Array(16).fill(false) as boolean[]
-    // Read initial output state
     const outputReply = await client.sendCommand('R', 4, null, -1)
     const outputs = outputReply.kind === 'read' ? parseBitfield(outputReply.values) : Array(16).fill(false) as boolean[]
-    return { ok: true, inputs, outputs }
+    // Subscribe all 16 inputs for async S5 notifications (last, after initial state is captured)
+    await client.sendCommand('W', 5, null, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16)
+    // Read initial device status
+    const statusReply = await client.sendCommand('R', 1, null)
+    const status = statusReply.kind === 'read' ? (statusReply.values[0] ?? '') : ''
+    return { ok: true, inputs, outputs, status }
   } catch (err) {
     return { ok: false, error: String(err) }
   }
@@ -89,6 +91,10 @@ client.on('inputChange', (data: { pin: number; state: boolean }) => {
 
 client.on('uartData', (data: { channel: number; payload: string }) => {
   mainWindow?.webContents.send('remoteio:event', { type: 'uart-data', channel: data.channel, payload: data.payload })
+})
+
+client.on('statusUpdate', (status: string) => {
+  mainWindow?.webContents.send('remoteio:event', { type: 'status-update', status })
 })
 
 client.on('close', () => {

@@ -15,13 +15,23 @@ interface Pending {
   timer: ReturnType<typeof setTimeout>
 }
 
+interface Queued {
+  cmd: string
+  prefix: string
+  resolve: (reply: ParsedReply) => void
+  reject: (err: Error) => void
+}
+
 const COMMAND_TIMEOUT_MS = 5_000
+const KEEPALIVE_INTERVAL_MS = 10_000
 
 export class RemoteIOClient extends EventEmitter {
   private socket: net.Socket | null = null
   private buffer = ''
   private pending: Pending | null = null
+  private queue: Queued[] = []
   private _connected = false
+  private keepaliveTimer: ReturnType<typeof setInterval> | null = null
 
   get connected(): boolean {
     return this._connected
@@ -49,7 +59,9 @@ export class RemoteIOClient extends EventEmitter {
 
       sock.connect({ host, port }, () => {
         sock.setTimeout(0)
+        sock.setKeepAlive(true, 5_000)
         this._connected = true
+        this.startKeepalive()
         resolve()
       })
     })
@@ -59,37 +71,38 @@ export class RemoteIOClient extends EventEmitter {
     this.destroySocket()
   }
 
-  async sendCommand(
+  sendCommand(
     type: CommandType,
     id: number,
     variant: number | null,
     ...params: (string | number)[]
   ): Promise<ParsedReply> {
     if (!this.socket || !this._connected) {
-      throw new Error('Not connected')
-    }
-    if (this.pending) {
-      throw new Error('Another command is already in flight')
+      return Promise.reject(new Error('Not connected'))
     }
 
     const cmd = buildCommand(type, id, variant, ...params)
     const prefix = expectedReplyPrefix(type, id, variant)
 
     return new Promise<ParsedReply>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending = null
-        reject(new Error(`Command "${cmd.trim()}" timed out after ${COMMAND_TIMEOUT_MS}ms`))
-      }, COMMAND_TIMEOUT_MS)
-
-      this.pending = {
-        prefix,
-        resolve: (reply) => { clearTimeout(timer); resolve(reply) },
-        reject: (err)  => { clearTimeout(timer); reject(err) },
-        timer,
-      }
-
-      this.socket!.write(cmd)
+      this.queue.push({ cmd, prefix, resolve, reject })
+      this.drainQueue()
     })
+  }
+
+  // Send the next queued command if nothing is currently in-flight.
+  private drainQueue(): void {
+    if (this.pending || this.queue.length === 0) return
+    const { cmd, prefix, resolve, reject } = this.queue.shift()!
+
+    const timer = setTimeout(() => {
+      this.pending = null
+      reject(new Error(`Command "${cmd.trim()}" timed out after ${COMMAND_TIMEOUT_MS}ms`))
+      this.drainQueue()
+    }, COMMAND_TIMEOUT_MS)
+
+    this.pending = { prefix, resolve, reject, timer }
+    this.socket!.write(cmd)
   }
 
   private onData(chunk: Buffer): void {
@@ -117,37 +130,67 @@ export class RemoteIOClient extends EventEmitter {
     if (!this.pending) return
 
     if (reply.kind === 'error') {
-      const { reject } = this.pending
+      const { reject, timer } = this.pending
+      clearTimeout(timer)
       this.pending = null
       reject(new Error(`Device error ERR${reply.code}`))
+      this.drainQueue()
       return
     }
 
     if (line.startsWith(this.pending.prefix + ' ') || line === this.pending.prefix) {
-      const { resolve } = this.pending
+      const { resolve, timer } = this.pending
+      clearTimeout(timer)
       this.pending = null
       resolve(reply)
+      this.drainQueue()
     }
   }
 
   private onClose(): void {
+    this.stopKeepalive()
     this._connected = false
     if (this.pending) {
+      clearTimeout(this.pending.timer)
       const { reject } = this.pending
       this.pending = null
       reject(new Error('Connection closed'))
     }
+    for (const { reject } of this.queue.splice(0)) reject(new Error('Connection closed'))
     this.emit('close')
   }
 
   private destroySocket(): void {
+    this.stopKeepalive()
     if (this.pending) {
       clearTimeout(this.pending.timer)
-      this.pending.reject(new Error('Disconnected'))
+      const { reject } = this.pending
       this.pending = null
+      reject(new Error('Disconnected'))
     }
+    for (const { reject } of this.queue.splice(0)) reject(new Error('Disconnected'))
     this.socket?.destroy()
     this.socket = null
     this._connected = false
+  }
+
+  private startKeepalive(): void {
+    this.stopKeepalive()
+    this.keepaliveTimer = setInterval(() => {
+      // Skip if busy — an in-flight command already proves the link is alive
+      if (!this._connected || this.pending || this.queue.length > 0) return
+      this.sendCommand('R', 1, null).then((reply) => {
+        if (reply.kind === 'read') this.emit('statusUpdate', reply.values[0] ?? '')
+      }).catch(() => {
+        if (this._connected) this.destroySocket()
+      })
+    }, KEEPALIVE_INTERVAL_MS)
+  }
+
+  private stopKeepalive(): void {
+    if (this.keepaliveTimer !== null) {
+      clearInterval(this.keepaliveTimer)
+      this.keepaliveTimer = null
+    }
   }
 }

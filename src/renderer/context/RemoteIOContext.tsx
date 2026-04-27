@@ -14,6 +14,10 @@ export interface RemoteIOState {
   outputs: boolean[]
   /** 25 LED colors, index 0 = LED 0 */
   leds: LedColor[]
+  /** Latest status string from R1 (e.g. "OK", "CHECKING_FOR_UPDATE") */
+  deviceStatus: string | null
+  /** S5 events received while still connecting; applied on top of initial state at CONNECTED */
+  _pendingInputs: Record<number, boolean>
 }
 
 type Action =
@@ -23,7 +27,9 @@ type Action =
   | { type: 'ERROR'; message: string }
   | { type: 'INPUT_CHANGED'; pin: number; state: boolean }
   | { type: 'OUTPUT_CHANGED'; pin: number; state: boolean }
+  | { type: 'OUTPUTS_REFRESHED'; outputs: boolean[] }
   | { type: 'LED_CHANGED'; index: number; color: LedColor }
+  | { type: 'STATUS_UPDATED'; status: string }
 
 const initial: RemoteIOState = {
   connection: 'idle',
@@ -31,20 +37,31 @@ const initial: RemoteIOState = {
   inputs:  Array<boolean>(16).fill(false),
   outputs: Array<boolean>(16).fill(false),
   leds:    Array<LedColor>(25).fill({ r: 0, g: 0, b: 0 }),
+  deviceStatus: null,
+  _pendingInputs: {},
 }
 
 function reducer(state: RemoteIOState, action: Action): RemoteIOState {
   switch (action.type) {
     case 'CONNECTING':
-      return { ...state, connection: 'connecting', errorMessage: '' }
+      return { ...state, connection: 'connecting', errorMessage: '', _pendingInputs: {} }
     case 'CONNECTED': {
-      return { ...state, connection: 'connected', inputs: action.inputs, outputs: action.outputs }
+      // Apply initial bitfield, then overlay any S5 events that arrived while connecting
+      const inputs = [...action.inputs]
+      for (const [pin, s] of Object.entries(state._pendingInputs)) {
+        inputs[Number(pin) - 1] = s as boolean
+      }
+      return { ...state, connection: 'connected', inputs, outputs: action.outputs, _pendingInputs: {} }
     }
     case 'DISCONNECTED':
       return { ...initial, connection: 'idle' }
     case 'ERROR':
       return { ...state, connection: 'error', errorMessage: action.message }
     case 'INPUT_CHANGED': {
+      if (state.connection !== 'connected') {
+        // Buffer S5 events until CONNECTED applies the initial bitfield
+        return { ...state, _pendingInputs: { ...state._pendingInputs, [action.pin]: action.state } }
+      }
       const inputs = [...state.inputs]
       inputs[action.pin - 1] = action.state  // pin is 1-based
       return { ...state, inputs }
@@ -54,6 +71,10 @@ function reducer(state: RemoteIOState, action: Action): RemoteIOState {
       outputs[action.pin - 1] = action.state
       return { ...state, outputs }
     }
+    case 'OUTPUTS_REFRESHED':
+      return { ...state, outputs: action.outputs }
+    case 'STATUS_UPDATED':
+      return { ...state, deviceStatus: action.status }
     case 'LED_CHANGED': {
       const leds = [...state.leds]
       leds[action.index] = action.color
@@ -78,6 +99,8 @@ export function RemoteIOProvider({ children }: { children: ReactNode }) {
     const unsub = window.remoteio.on((event: RemoteIOEvent) => {
       if (event.type === 'input-change') {
         dispatch({ type: 'INPUT_CHANGED', pin: event.pin, state: event.state })
+      } else if (event.type === 'status-update') {
+        dispatch({ type: 'STATUS_UPDATED', status: event.status })
       } else if (event.type === 'disconnected') {
         dispatch({ type: 'DISCONNECTED' })
       }

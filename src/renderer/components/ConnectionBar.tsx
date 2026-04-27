@@ -20,6 +20,7 @@ export function ConnectionBar() {
         inputs:  result.inputs  ?? Array<boolean>(16).fill(false),
         outputs: result.outputs ?? Array<boolean>(16).fill(false),
       })
+      if (result.status) dispatch({ type: 'STATUS_UPDATED', status: result.status })
     } else {
       dispatch({ type: 'ERROR', message: result.error ?? 'Connection failed' })
     }
