@@ -3,6 +3,7 @@ import http from 'node:http'
 export interface DeviceConfig {
   host: string
   portOffset: number
+  autoConnect: boolean
 }
 
 const SCHEMA_JSON = JSON.stringify({
@@ -11,6 +12,7 @@ const SCHEMA_JSON = JSON.stringify({
   properties: {
     host: { type: 'string', title: 'Device IP', default: '192.168.1.10' },
     portOffset: { type: 'integer', title: 'Port Offset', description: 'Effective TCP port = 8500 + offset', default: 0, minimum: 0, maximum: 65035 },
+    autoConnect: { type: 'boolean', title: 'Auto-connect', description: 'Connect to the device automatically on launch and after disconnects so background alerts continue to fire.', default: false },
   },
 })
 
@@ -51,6 +53,7 @@ export function startSettingsServer(
                 entries: {
                   host: { string_value: config.host },
                   portOffset: { number_value: config.portOffset },
+                  autoConnect: { bool_value: config.autoConnect },
                 },
               },
             }))
@@ -65,6 +68,10 @@ export function startSettingsServer(
               if (typeof entries['portOffset']?.['number_value'] === 'number') {
                 partial.portOffset = entries['portOffset']['number_value'] as number
                 config.portOffset = partial.portOffset
+              }
+              if (typeof entries['autoConnect']?.['bool_value'] === 'boolean') {
+                partial.autoConnect = entries['autoConnect']['bool_value'] as boolean
+                config.autoConnect = partial.autoConnect
               }
               if (Object.keys(partial).length > 0) onConfigChange(partial)
             }

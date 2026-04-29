@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Concept 2: "Signal Pulse" — digital waveform with wifi arcs, monitoring feel -->
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#12001e"/>
+      <stop offset="100%" style="stop-color:#2a0040"/>
+    </linearGradient>
+    <linearGradient id="wave2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#7b2fff"/>
+      <stop offset="50%" style="stop-color:#c44dff"/>
+      <stop offset="100%" style="stop-color:#7b2fff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="248" fill="url(#bg2)" stroke="#c44dff" stroke-width="5"/>
+
+  <!-- Digital waveform — square wave across center -->
+  <!-- Baseline -->
+  <polyline points="70,290 130,290 130,200 180,200 180,290 230,290 230,200 280,200 280,290 330,290 330,200 380,200 380,290 440,290"
+    fill="none" stroke="url(#wave2)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Glow effect behind waveform -->
+  <polyline points="70,290 130,290 130,200 180,200 180,290 230,290 230,200 280,200 280,290 330,290 330,200 380,200 380,290 440,290"
+    fill="none" stroke="#c44dff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" opacity="0.15"/>
+
+  <!-- Wifi/remote arcs top-right -->
+  <path d="M370,130 A70,70 0 0,1 440,200" fill="none" stroke="#c44dff" stroke-width="7" stroke-linecap="round" opacity="0.9"/>
+  <path d="M380,112 A95,95 0 0,1 458,190" fill="none" stroke="#c44dff" stroke-width="5" stroke-linecap="round" opacity="0.5"/>
+  <path d="M390,94 A120,120 0 0,1 476,182" fill="none" stroke="#c44dff" stroke-width="3" stroke-linecap="round" opacity="0.25"/>
+  <!-- Arc anchor dot -->
+  <circle cx="370" cy="130" r="10" fill="#c44dff"/>
+
+  <!-- IO labels on left side -->
+  <text x="95" y="175" font-family="monospace" font-size="28" font-weight="bold" fill="#c44dff" opacity="0.6">1</text>
+  <text x="95" y="315" font-family="monospace" font-size="28" font-weight="bold" fill="#c44dff" opacity="0.6">0</text>
+
+  <!-- Horizontal scan line (CRT monitor effect) -->
+  <line x1="68" y1="256" x2="444" y2="256" stroke="#c44dff" stroke-width="1" opacity="0.12" stroke-dasharray="6,8"/>
+
+  <!-- Corner bracket decorations -->
+  <path d="M70,80 L70,50 L100,50" fill="none" stroke="#c44dff" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <path d="M442,80 L442,50 L412,50" fill="none" stroke="#c44dff" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <path d="M70,432 L70,462 L100,462" fill="none" stroke="#c44dff" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <path d="M442,432 L442,462 L412,462" fill="none" stroke="#c44dff" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+</svg>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ConnectionBar } from './components/ConnectionBar'
 import { DigitalInputs } from './components/DigitalInputs'
 import { DigitalOutputs } from './components/DigitalOutputs'
@@ -27,6 +27,41 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('inputs')
   const { state } = useRemoteIO()
+  const isConnected = state.connection === 'connected'
+  const inputsSubscribed = useRef(false)
+
+  // Subscribe when entering inputs tab, unsubscribe when leaving
+  useEffect(() => {
+    if (!isConnected) return
+    if (activeTab === 'inputs') {
+      window.remoteio.subscribeInputs().then(() => { inputsSubscribed.current = true })
+    } else if (inputsSubscribed.current) {
+      window.remoteio.unsubscribeInputs().then(() => { inputsSubscribed.current = false })
+    }
+  }, [activeTab, isConnected])
+
+  // Clear subscription tracking on disconnect (connection gone, no W6 needed)
+  useEffect(() => {
+    if (!isConnected) {
+      inputsSubscribed.current = false
+    }
+  }, [isConnected])
+
+  // Unsubscribe when app is backgrounded; resubscribe when it returns to foreground on inputs tab
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!isConnected) return
+      if (document.hidden) {
+        if (inputsSubscribed.current) {
+          window.remoteio.unsubscribeInputs().then(() => { inputsSubscribed.current = false })
+        }
+      } else if (activeTab === 'inputs' && !inputsSubscribed.current) {
+        window.remoteio.subscribeInputs().then(() => { inputsSubscribed.current = true })
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [activeTab, isConnected])
 
   return (
     <div style={styles.root}>

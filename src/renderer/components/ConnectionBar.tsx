@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRemoteIO } from '../context/RemoteIOContext'
+import type { RemoteIOEvent } from '../types/global'
 
 const BAUD_RATES = [9600, 19200, 38400, 57600, 115200]
 
@@ -7,9 +8,31 @@ export function ConnectionBar() {
   const { state, dispatch } = useRemoteIO()
   const [host, setHost] = useState('192.168.1.10')
   const [portOffset, setPortOffset] = useState(0)
+  const [autoConnect, setAutoConnectState] = useState(false)
 
   const connected = state.connection === 'connected'
   const connecting = state.connection === 'connecting'
+
+  // Hydrate the config-driven controls from the main process and stay in sync with host-side edits
+  useEffect(() => {
+    window.remoteio.getConfig().then((cfg) => {
+      setHost(cfg.host)
+      setPortOffset(cfg.portOffset)
+      setAutoConnectState(cfg.autoConnect)
+    })
+    return window.remoteio.on((event: RemoteIOEvent) => {
+      if (event.type === 'config-changed') {
+        setHost(event.config.host)
+        setPortOffset(event.config.portOffset)
+        setAutoConnectState(event.config.autoConnect)
+      }
+    })
+  }, [])
+
+  async function handleAutoConnectToggle(enabled: boolean) {
+    setAutoConnectState(enabled)
+    await window.remoteio.setAutoConnect(enabled)
+  }
 
   async function handleConnect() {
     dispatch({ type: 'CONNECTING' })
@@ -70,6 +93,16 @@ export function ConnectionBar() {
         />
 
         <span style={styles.portHint}>→ {8500 + portOffset}</span>
+
+        <label style={styles.autoConnectLabel} title="Connect automatically on launch and after disconnects so background alerts continue to fire.">
+          <input
+            type="checkbox"
+            checked={autoConnect}
+            onChange={(e) => handleAutoConnectToggle(e.target.checked)}
+            style={styles.autoConnectCheckbox}
+          />
+          Auto-connect
+        </label>
       </div>
 
       <div style={styles.right}>
@@ -137,6 +170,20 @@ const styles: Record<string, React.CSSProperties> = {
   portHint: {
     color: 'var(--text-muted)',
     fontSize: 12,
+  },
+  autoConnectLabel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    color: 'var(--text-secondary)',
+    fontSize: 12,
+    cursor: 'pointer',
+    userSelect: 'none',
+    marginLeft: 12,
+  },
+  autoConnectCheckbox: {
+    cursor: 'pointer',
+    accentColor: 'var(--accent)',
   },
   right: {
     display: 'flex',

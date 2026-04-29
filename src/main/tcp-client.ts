@@ -23,7 +23,7 @@ interface Queued {
 }
 
 const COMMAND_TIMEOUT_MS = 5_000
-const KEEPALIVE_INTERVAL_MS = 10_000
+const KEEPALIVE_INTERVAL_MS = 5_000
 
 export class RemoteIOClient extends EventEmitter {
   private socket: net.Socket | null = null

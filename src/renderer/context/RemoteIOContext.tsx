@@ -23,6 +23,7 @@ export interface RemoteIOState {
 type Action =
   | { type: 'CONNECTING' }
   | { type: 'CONNECTED'; inputs: boolean[]; outputs: boolean[] }
+  | { type: 'BACKGROUND_HYDRATED'; inputs: boolean[]; outputs: boolean[]; status: string }
   | { type: 'DISCONNECTED' }
   | { type: 'ERROR'; message: string }
   | { type: 'INPUT_CHANGED'; pin: number; state: boolean }
@@ -46,24 +47,31 @@ function reducer(state: RemoteIOState, action: Action): RemoteIOState {
     case 'CONNECTING':
       return { ...state, connection: 'connecting', errorMessage: '', _pendingInputs: {} }
     case 'CONNECTED': {
-      // Apply initial bitfield, then overlay any S5 events that arrived while connecting
       const inputs = [...action.inputs]
       for (const [pin, s] of Object.entries(state._pendingInputs)) {
         inputs[Number(pin) - 1] = s as boolean
       }
       return { ...state, connection: 'connected', inputs, outputs: action.outputs, _pendingInputs: {} }
     }
+    case 'BACKGROUND_HYDRATED':
+      return {
+        ...state,
+        connection: 'connected',
+        inputs: action.inputs,
+        outputs: action.outputs,
+        deviceStatus: action.status || null,
+        _pendingInputs: {},
+      }
     case 'DISCONNECTED':
-      return { ...initial, connection: 'idle' }
+      return { ...initial }
     case 'ERROR':
       return { ...state, connection: 'error', errorMessage: action.message }
     case 'INPUT_CHANGED': {
       if (state.connection !== 'connected') {
-        // Buffer S5 events until CONNECTED applies the initial bitfield
         return { ...state, _pendingInputs: { ...state._pendingInputs, [action.pin]: action.state } }
       }
       const inputs = [...state.inputs]
-      inputs[action.pin - 1] = action.state  // pin is 1-based
+      inputs[action.pin - 1] = action.state
       return { ...state, inputs }
     }
     case 'OUTPUT_CHANGED': {
@@ -95,18 +103,50 @@ const Ctx = createContext<ContextValue | null>(null)
 export function RemoteIOProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initial)
 
+  // Hydrate from background state on mount (main process may still be connected)
+  useEffect(() => {
+    window.remoteio.getBackgroundState().then((bg) => {
+      if (bg.connected) {
+        dispatch({
+          type: 'BACKGROUND_HYDRATED',
+          inputs: bg.inputs,
+          outputs: bg.outputs,
+          status: bg.status ?? '',
+        })
+      }
+    })
+  }, [])
+
   useEffect(() => {
     const unsub = window.remoteio.on((event: RemoteIOEvent) => {
       if (event.type === 'input-change') {
         dispatch({ type: 'INPUT_CHANGED', pin: event.pin, state: event.state })
       } else if (event.type === 'status-update') {
         dispatch({ type: 'STATUS_UPDATED', status: event.status })
+      } else if (event.type === 'connected') {
+        dispatch({
+          type: 'BACKGROUND_HYDRATED',
+          inputs:  event.inputs,
+          outputs: event.outputs,
+          status:  event.status,
+        })
       } else if (event.type === 'disconnected') {
         dispatch({ type: 'DISCONNECTED' })
       }
       // uart-data is handled locally in UartPanel
     })
     return unsub
+  }, [])
+
+  // Dev-only console helper
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).__rio = {
+        alert:   (status: string) => window.remoteio.testAlert(status),
+        dismiss: (status = '')    => window.remoteio.dismissAlert(status),
+      }
+    }
   }, [])
 
   return <Ctx.Provider value={{ state, dispatch }}>{children}</Ctx.Provider>
