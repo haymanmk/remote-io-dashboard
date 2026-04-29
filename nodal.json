@@ -1,5 +1,5 @@
 {
-  "id": "io.remote.dashboard",
+  "id": "com.nodalcore.remoteio-dashboard",
   "name": "Remote IO Dashboard",
   "version": "0.1.0",
   "sdkVersion": "^1.0.0",
