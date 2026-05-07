@@ -35,16 +35,19 @@ export function createDispatcher(deps: DispatcherDeps) {
     const msg = raw as PanelMessage
     if (msg?.type === 'getSnapshot') return deps.snapshot()
     if (!deps.isConnected()) return { error: 'not connected' }
+
+    // Narrow: command messages are everything except getSnapshot
+    const cmd = msg as Exclude<PanelMessage, { type: 'getSnapshot' }>
     try {
-      switch (msg.type) {
+      switch (cmd.type) {
         case 'setOutput':
-          await deps.sendCommand('W', 4, null, msg.index, msg.value)
+          await deps.sendCommand('W', 4, null, cmd.index, cmd.value)
           return { ok: true }
         case 'setLed':
-          await deps.sendCommand('W', 8, null, msg.index, msg.r, msg.g, msg.b)
+          await deps.sendCommand('W', 8, null, cmd.index, cmd.r, cmd.g, cmd.b)
           return { ok: true }
         case 'uartSend':
-          await deps.sendCommand('W', 7, msg.channel, msg.data.length, msg.data)
+          await deps.sendCommand('W', 7, cmd.channel, cmd.data.length, cmd.data)
           return { ok: true }
         case 'subscribeInputs':
           await deps.sendCommand('W', 5, null, ...ALL_PINS)
@@ -52,8 +55,13 @@ export function createDispatcher(deps: DispatcherDeps) {
         case 'unsubscribeInputs':
           await deps.sendCommand('W', 6, null, ...ALL_PINS)
           return { ok: true }
-        default:
+        default: {
+          // Compile-time exhaustiveness: this line errors if a PanelMessage
+          // variant is added without a matching case above.
+          const _exhaustive: never = cmd
+          void _exhaustive
           return { error: `unknown type: ${(msg as { type?: string })?.type ?? 'undefined'}` }
+        }
       }
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) }
