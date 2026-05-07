@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useReducer, type ReactNode } from 'react'
 
+const UART_HISTORY_CAP = 256
+
 type ConnectionState = 'connected' | 'disconnected'
 type LedRgb = { r: number; g: number; b: number }
 
@@ -38,8 +40,8 @@ function reducer(state: RemoteIOState, action: Action): RemoteIOState {
     case 'inputs':
       return { ...state, inputs: [...action.values] }
     case 'uart': {
-      const next = { ...state.uart, [action.channel]: [...(state.uart[action.channel] ?? []), action.data] }
-      return { ...state, uart: next }
+      const merged = [...(state.uart[action.channel] ?? []), action.data].slice(-UART_HISTORY_CAP)
+      return { ...state, uart: { ...state.uart, [action.channel]: merged } }
     }
     case 'localSetOutput': {
       const next = [...state.outputs]

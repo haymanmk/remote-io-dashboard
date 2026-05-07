@@ -15,7 +15,7 @@ export function StatusIndicator() {
     <div style={styles.row}>
       <span style={{ ...styles.dot, background: connected ? 'var(--success)' : 'var(--text-muted)' }} />
       <span style={styles.label}>{connected ? 'Live' : 'Disconnected'}</span>
-      {state.deviceStatus !== null && connected && (
+      {state.deviceStatus !== null && (
         <span style={{ ...styles.status, color: statusColor(state.deviceStatus) }}>
           {state.deviceStatus || '—'}
         </span>
