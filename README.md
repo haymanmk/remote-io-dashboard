@@ -1,58 +1,69 @@
-# Remote IO Dashboard
+# Remote IO Dashboard — NodalCore Plugin
 
-Electron desktop dashboard for monitoring and controlling a Remote IO device over TCP. The app provides live digital input monitoring, digital output control, WS2812 LED management, UART bridging, and device network/settings management from a single UI.
+Device-bridge plugin for the STM32 Remote IO firmware. Connects over TCP to
+the firmware's text protocol (port 8500 + offset) and exposes a live
+dashboard panel inside NodalCore's Workspace tab.
 
-## Features
+- 16 digital inputs (subscription)
+- 16 digital outputs
+- 25-LED WS2812 strip
+- 2 UART channels (rx/tx)
 
-- Connects to a device at `host` and TCP port `8500 + portOffset`
-- Live view of 16 digital inputs via async subscription updates
-- Toggle control for 16 digital outputs
-- Control for a 25-pixel WS2812 LED strip
-- Two UART channels with send/receive logs and baud-rate controls
-- Network and device settings editor with a small NodalCore-compatible settings server
+## Prerequisites
 
-## Stack
+- Node.js 20+, pnpm 9+
+- [yalc](https://github.com/wclr/yalc): `npm i -g yalc`
+- A local checkout of the NodalCore monorepo at `~/Workspace/js/NodalCore`
 
-- Electron + electron-vite
-- React 18 + TypeScript
-- Native Node TCP client in the Electron main process
-
-## Project layout
-
-```text
-src/main/       Electron main process, TCP client, settings server
-src/preload/    Secure renderer bridge
-src/renderer/   React UI
-proto/          Protocol-related assets
-bin/start.js    Launcher used by NodalCore
-nodal.json      NodalCore metadata
-```
-
-## Getting started
-
-This repository uses `pnpm` for dependency management.
+## Bootstrap
 
 ```bash
+# In the NodalCore monorepo: publish @nodalcore/sdk to local yalc store
+cd ~/Workspace/js/NodalCore
+pnpm sdk:publish-local
+
+# In this repo:
+cd ~/Workspace/js/remote-io-dashboard
+yalc add @nodalcore/sdk
 pnpm install
-pnpm dev
+pnpm build
 ```
 
-Useful scripts:
+## Build
 
 ```bash
-pnpm run typecheck
-pnpm run build
-pnpm run preview
+pnpm build           # plugin (dist/) + panel (panel/)
+pnpm build:plugin    # tsup only
+pnpm build:panel     # vite only
+pnpm test            # vitest unit tests
+pnpm typecheck       # both tsconfigs
 ```
 
-If you prefer `npm`, the same scripts are available through `npm run <script>`, but `pnpm` is the primary workflow because the lockfile is committed.
+## Install into NodalCore
 
-## How it works
+```bash
+node ~/Workspace/js/NodalCore/apps/cli/dist/index.js \
+  plugin install /home/hayman/Workspace/js/remote-io-dashboard
+```
 
-The Electron main process owns the TCP connection to the Remote IO device and exposes a small IPC API through the preload script. The React renderer consumes that API to drive the dashboard UI.
+Or via the desktop app: `pnpm dev` in the NodalCore monorepo → Plugins tab →
+Install local → pick this directory.
 
-At startup, the app also opens a local HTTP settings server so NodalCore can read the schema and update `host` / `portOffset`. When launched through `bin/start.js`, the built app prints `NODALCORE_READY <port>` to stdout for the parent process.
+After install, in NodalCore: **Plugins → Remote IO Dashboard** to set
+`host` / `portOffset`, then **Connect**, then **Workspace tab → Live
+Dashboard** to open the panel.
 
-## Before pushing
+## Iterating on the SDK
 
-Build artifacts and local dependencies are ignored through `.gitignore`, so you can safely add the project to git and push the source files without committing `node_modules/` or `out/`.
+When the upstream SDK changes:
+
+```
+[in NodalCore]                   [here]
+edit packages/sdk/src/...
+pnpm sdk:publish-local  ────────► yalc auto-pushes
+                                  pnpm build  # rebundle
+                                  reinstall plugin into NodalCore
+```
+
+(NodalCore's installer copies; it doesn't follow yalc symlinks at runtime.
+The bundled `dist/index.js` is fully self-contained.)
