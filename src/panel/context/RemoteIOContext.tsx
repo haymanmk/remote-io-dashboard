@@ -64,6 +64,7 @@ interface ContextValue {
   uartSend:  (channel: number, data: string) => Promise<void>
   subscribeInputs:   () => Promise<void>
   unsubscribeInputs: () => Promise<void>
+  refresh:           () => Promise<void>
 }
 
 const Ctx = createContext<ContextValue | null>(null)
@@ -137,8 +138,13 @@ export function RemoteIOProvider({ children }: { children: ReactNode }) {
   async function subscribeInputs()   { await send({ type: 'subscribeInputs' }) }
   async function unsubscribeInputs() { await send({ type: 'unsubscribeInputs' }) }
 
+  async function refresh(): Promise<void> {
+    const snap = await window.nodalcore.postMessage({ type: 'getSnapshot' })
+    if (snap) dispatch({ type: 'snapshot', snapshot: snap as RemoteIOState })
+  }
+
   return (
-    <Ctx.Provider value={{ state, send, setOutput, setLed, uartSend, subscribeInputs, unsubscribeInputs }}>
+    <Ctx.Provider value={{ state, send, setOutput, setLed, uartSend, subscribeInputs, unsubscribeInputs, refresh }}>
       {children}
     </Ctx.Provider>
   )

@@ -8,14 +8,14 @@ const PIN_LABELS: Record<number, string> = {
 }
 
 export function DigitalOutputs() {
-  const { state, send, setOutput } = useRemoteIO()
+  const { state, setOutput, refresh: refreshState } = useRemoteIO()
   const disabled = state.connection !== 'connected'
   const [refreshing, setRefreshing] = useState(false)
 
   async function refresh() {
     setRefreshing(true)
     try {
-      await send({ type: 'getSnapshot' })
+      await refreshState()
     } finally {
       setRefreshing(false)
     }
