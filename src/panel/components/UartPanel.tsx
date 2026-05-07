@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRemoteIO } from '../context/RemoteIOContext'
-import { useCommands } from '../hooks/useCommands'
-import type { RemoteIOEvent } from '../types/global'
 
 interface LogEntry {
   dir: 'tx' | 'rx'
@@ -22,55 +20,63 @@ function displayText(text: string): string {
 }
 
 function UartChannel({ channel }: { channel: number }) {
-  const { state } = useRemoteIO()
-  const cmds = useCommands()
+  const { state, uartSend, send } = useRemoteIO()
   const [input, setInput] = useState('')
-  const [log, setLog] = useState<LogEntry[]>([])
+  const [txLog, setTxLog] = useState<LogEntry[]>([])
   const [baud, setBaud] = useState<number | null>(null)
   const [appendCRLF, setAppendCRLF] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
   const disabled = state.connection !== 'connected'
 
-  // Subscribe to uart-data events for this channel
-  useEffect(() => {
-    const unsub = window.remoteio.on((event: RemoteIOEvent) => {
-      if (event.type === 'uart-data' && event.channel === channel) {
-        setLog((prev) => [...prev.slice(-499), {
-          dir: 'rx', channel, text: event.payload, ts: timestamp(),
-        }])
-      }
-    })
-    return unsub
-  }, [channel])
+  // Derive Rx entries from context state (appended by reducer on 'uart' push messages)
+  const rxEntries = (state.uart[channel] ?? [])
 
-  // Auto-scroll log
+  // Auto-scroll log when rx entries or tx log changes
   useEffect(() => {
     const el = logRef.current
     if (el) el.scrollTop = el.scrollHeight
-  }, [log])
+  }, [rxEntries, txLog])
 
   // Read baud rate on connect
   useEffect(() => {
     if (state.connection !== 'connected') { setBaud(null); return }
-    cmds.readUartBaud(channel).then((r) => {
-      if (r.ok && r.reply?.kind === 'read') setBaud(Number(r.reply.values?.[0]))
-    })
+    void send<{ ok?: boolean; reply?: { kind: string; values?: (string | number)[] } }>(
+      { type: 'readUartBaud', channel }
+    ).then((r) => {
+      if (r?.ok && r.reply?.kind === 'read') setBaud(Number(r.reply.values?.[0]))
+    }).catch(() => { /* baud read unsupported by this dispatcher version */ })
   }, [state.connection, channel])
 
-  async function send() {
+  // Build merged log: interleave tx and rx entries sorted by insertion order.
+  // Rx entries come from context (no timestamp); we display them in order with a
+  // placeholder timestamp. Tx entries have real timestamps from local state.
+  // For simplicity, show all rx entries first per render then tx — use a combined
+  // display built from both sources tagged with direction.
+  const rxLogEntries: LogEntry[] = rxEntries.map((text) => ({
+    dir: 'rx' as const,
+    channel,
+    text,
+    ts: '',
+  }))
+
+  // Merge: display txLog entries inline by matching insertion index isn't trivial
+  // without timestamps on rx. Use a simple approach: show combined list capped at 500.
+  const combinedLog = [...txLog, ...rxLogEntries].slice(-500)
+
+  async function handleSend() {
     const text = input.trim()
     if (!text || disabled) return
     const payload = appendCRLF ? text + '\r\n' : text
-    const result = await cmds.sendUart(channel, payload)
-    if (result.ok) {
-      setLog((prev) => [...prev.slice(-499), { dir: 'tx', channel, text: payload, ts: timestamp() }])
-      setInput('')
-    }
+    await uartSend(channel, payload)
+    setTxLog((prev) => [...prev.slice(-499), { dir: 'tx', channel, text: payload, ts: timestamp() }])
+    setInput('')
   }
 
   async function handleBaudChange(newBaud: number) {
-    const result = await cmds.writeUartBaud(channel, newBaud)
-    if (result.ok) setBaud(newBaud)
+    const result = await send<{ ok?: boolean }>(
+      { type: 'writeUartBaud', channel, baud: newBaud }
+    ).catch(() => ({ ok: false }))
+    if (result?.ok) setBaud(newBaud)
   }
 
   return (
@@ -92,19 +98,19 @@ function UartChannel({ channel }: { channel: number }) {
         </select>
         <button
           style={styles.clearBtn}
-          onClick={() => setLog([])}
+          onClick={() => setTxLog([])}
         >
           Clear
         </button>
       </div>
 
       <div ref={logRef} style={styles.log}>
-        {log.length === 0 ? (
+        {combinedLog.length === 0 ? (
           <span style={styles.empty}>No data yet</span>
         ) : (
-          log.map((entry, i) => (
+          combinedLog.map((entry, i) => (
             <div key={i} style={styles.logLine}>
-              <span style={styles.ts}>{entry.ts}</span>
+              {entry.ts && <span style={styles.ts}>{entry.ts}</span>}
               <span style={{
                 ...styles.dir,
                 color: entry.dir === 'tx' ? 'var(--accent)' : 'var(--success)',
@@ -122,7 +128,7 @@ function UartChannel({ channel }: { channel: number }) {
           style={styles.textInput}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           placeholder="Type and press Enter to send…"
           disabled={disabled}
           spellCheck={false}
@@ -138,7 +144,7 @@ function UartChannel({ channel }: { channel: number }) {
         </label>
         <button
           style={{ ...styles.sendBtn, opacity: disabled ? 0.5 : 1 }}
-          onClick={send}
+          onClick={handleSend}
           disabled={disabled}
         >
           Send
