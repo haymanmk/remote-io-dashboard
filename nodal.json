@@ -11,20 +11,6 @@
     "configuration": {
       "title": "Remote IO Settings",
       "properties": {
-        "host": {
-          "type": "string",
-          "title": "Device IP",
-          "description": "IP address the dashboard dials to reach the device.",
-          "default": "192.168.1.10"
-        },
-        "portOffset": {
-          "type": "integer",
-          "title": "Port Offset",
-          "description": "Effective TCP port = 8500 + offset.",
-          "default": 0,
-          "minimum": 0,
-          "maximum": 65035
-        },
         "deviceIp": {
           "type": "string",
           "title": "Device IP (firmware)",
