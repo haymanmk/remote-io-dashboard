@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useRemoteIO } from '../context/RemoteIOContext'
-import { useCommands } from '../hooks/useCommands'
-import type { LedColor } from '../context/RemoteIOContext'
+
+type LedColor = { r: number; g: number; b: number }
 
 const LED_COUNT = 25
 
@@ -19,25 +19,20 @@ function brightness({ r, g, b }: LedColor): number {
 }
 
 export function LedPanel() {
-  const { state, dispatch } = useRemoteIO()
-  const cmds = useCommands()
+  const { state, setLed } = useRemoteIO()
   const [selected, setSelected] = useState<number | null>(null)
   const disabled = state.connection !== 'connected'
 
   const setAll = useCallback(async (color: LedColor) => {
     if (disabled) return
     for (let i = 0; i < LED_COUNT; i++) {
-      await cmds.setLed(i, color.r, color.g, color.b)
-      dispatch({ type: 'LED_CHANGED', index: i, color })
+      await setLed(i, color.r, color.g, color.b)
     }
-  }, [disabled, cmds, dispatch])
+  }, [disabled, setLed])
 
   async function handleColorChange(index: number, hex: string) {
     const color = fromHex(hex)
-    const result = await cmds.setLed(index, color.r, color.g, color.b)
-    if (result.ok) {
-      dispatch({ type: 'LED_CHANGED', index, color })
-    }
+    await setLed(index, color.r, color.g, color.b)
   }
 
   const selectedColor = selected !== null ? state.leds[selected] : null
