@@ -50,11 +50,16 @@ const dispatch = createDispatcher({
 export default class RemoteIOPlugin extends DevicePlugin {
   readonly connectionType = 'tcp' as const
 
-  async connect(_options: ConnectionOptions): Promise<void> {
+  async connect(options: ConnectionOptions): Promise<void> {
     const cfg = await ctxRef!.workspace.getConfiguration()
-    const host = (cfg.host as string | undefined) ?? '192.168.1.10'
-    const portOffset = (cfg.portOffset as number | undefined) ?? 0
-    const port = 8500 + portOffset
+    // Prefer the host-supplied ConnectionOptions when populated. As of SDK
+    // 0.2.0 the desktop renderer doesn't surface a Configure-and-Connect
+    // dialog, so options arrives as an empty object cast — fall back to
+    // ctx.workspace.getConfiguration() in that case. Once the host wires
+    // up the dialog, options.host/options.port will take over automatically.
+    const tcp = options?.connectionType === 'tcp' ? options : null
+    const host = tcp?.host ?? (cfg.host as string | undefined) ?? '192.168.1.10'
+    const port = tcp?.port ?? (8500 + ((cfg.portOffset as number | undefined) ?? 0))
 
     await client.connect(host, port)
 
