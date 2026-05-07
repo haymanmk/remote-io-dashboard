@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useRemoteIO } from '../context/RemoteIOContext'
-import { useCommands } from '../hooks/useCommands'
 
 const PIN_LABELS: Record<number, string> = {
   1: 'PC7',  2: 'PC8',  3: 'PC9',  4: 'PC10', 5: 'PC11', 6: 'PC12',
@@ -9,20 +8,14 @@ const PIN_LABELS: Record<number, string> = {
 }
 
 export function DigitalOutputs() {
-  const { state, dispatch } = useRemoteIO()
-  const cmds = useCommands()
+  const { state, setOutput, refresh: refreshState } = useRemoteIO()
   const disabled = state.connection !== 'connected'
   const [refreshing, setRefreshing] = useState(false)
 
   async function refresh() {
     setRefreshing(true)
     try {
-      const r = await cmds.readAllOutputs()
-      if (r.ok && r.reply?.kind === 'read' && r.reply.values) {
-        const n = parseInt(r.reply.values[0] ?? '0')
-        const outputs = Array.from({ length: 16 }, (_, i) => Boolean((n >> i) & 1))
-        dispatch({ type: 'OUTPUTS_REFRESHED', outputs })
-      }
+      await refreshState()
     } finally {
       setRefreshing(false)
     }
@@ -31,10 +24,7 @@ export function DigitalOutputs() {
   async function toggle(pin: number) {
     const current = state.outputs[pin - 1]
     const next: 0 | 1 = current ? 0 : 1
-    const result = await cmds.setOutput(pin, next)
-    if (result.ok) {
-      dispatch({ type: 'OUTPUT_CHANGED', pin, state: Boolean(next) })
-    }
+    await setOutput(pin, next)
   }
 
   return (

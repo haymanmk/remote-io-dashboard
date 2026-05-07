@@ -1,30 +1,74 @@
 {
   "id": "com.nodalcore.remote-io-dashboard",
   "name": "Remote IO Dashboard",
-  "version": "0.1.0",
-  "sdkVersion": "^1.0.0",
-  "type": "standalone-tool",
-  "executable": "bin/start.js",
-  "settingsSchema": {
-    "type": "object",
-    "required": ["host"],
-    "properties": {
-      "host": {
-        "type": "string",
-        "title": "Device IP",
-        "default": "192.168.1.10"
-      },
-      "portOffset": {
-        "type": "integer",
-        "title": "Port Offset",
-        "description": "Effective TCP port = 8500 + offset",
-        "default": 0,
-        "minimum": 0,
-        "maximum": 65035
+  "version": "0.2.0",
+  "sdkVersion": ">=0.2.0",
+  "type": "device-bridge",
+  "main": "dist/index.js",
+  "connectionType": "tcp",
+  "permissions": ["network"],
+  "contributes": {
+    "configuration": {
+      "title": "Remote IO Settings",
+      "properties": {
+        "deviceIp": {
+          "type": "string",
+          "title": "Device IP (firmware)",
+          "description": "IP stored in device flash (R101/W101). Takes effect after device reboot.",
+          "default": "192.168.1.10",
+          "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})(?:\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})){3})$"
+        },
+        "devicePortOffset": {
+          "type": "integer",
+          "title": "Device Port Offset (firmware)",
+          "description": "Listen-port offset stored in device flash (R102/W102). Effective device port = 8500 + offset. Takes effect after device reboot.",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 65035
+        },
+        "netmask": {
+          "type": "string",
+          "title": "Netmask (firmware)",
+          "description": "Subnet mask stored in device flash (R103/W103).",
+          "default": "255.255.255.0",
+          "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})(?:\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})){3})$"
+        },
+        "gateway": {
+          "type": "string",
+          "title": "Gateway (firmware)",
+          "description": "Default gateway stored in device flash (R104/W104).",
+          "default": "192.168.1.1",
+          "pattern": "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})(?:\\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9]{1,2})){3})$"
+        },
+        "mac": {
+          "type": "string",
+          "title": "MAC Address (firmware)",
+          "description": "MAC address stored in device flash (R105/W105). Format: hex octets separated by colons.",
+          "default": "00:05:4f:01:02:03",
+          "pattern": "^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$"
+        },
+        "uart0Baud": {
+          "type": "integer",
+          "title": "UART0 Baud (firmware)",
+          "description": "USART2 baud rate stored in device flash (R106.0/W106.0). Common values: 9600, 19200, 38400, 57600, 115200.",
+          "default": 19200,
+          "minimum": 1
+        },
+        "uart1Baud": {
+          "type": "integer",
+          "title": "UART1 Baud (firmware)",
+          "description": "UART5 baud rate stored in device flash (R106.1/W106.1). Common values: 9600, 19200, 38400, 57600, 115200.",
+          "default": 9600,
+          "minimum": 1
+        }
       }
+    },
+    "views": {
+      "panel": [
+        { "id": "dashboard", "name": "Live Dashboard", "html": "panel/index.html" }
+      ]
     }
   },
-  "permissions": ["network"],
   "author": "Remote IO Dashboard",
   "tags": ["io", "tcp", "hardware", "zephyr"]
 }
