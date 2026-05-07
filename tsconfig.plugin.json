@@ -10,7 +10,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "types": ["node"],
-    "composite": true,
+    "composite": false,
     "rootDir": "./src/plugin"
   },
   "include": ["src/plugin/**/*.ts"]

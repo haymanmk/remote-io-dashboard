@@ -6,6 +6,7 @@ export default defineConfig({
   format: ['esm'],
   target: 'node20',
   platform: 'node',
+  tsconfig: 'tsconfig.plugin.json',
   noExternal: [/.*/],
   banner: {
     js: [

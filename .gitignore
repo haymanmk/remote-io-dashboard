@@ -29,3 +29,6 @@ yalc.lock
 
 # Vite cache
 node_modules/.vite/
+
+# tsc incremental info
+*.tsbuildinfo

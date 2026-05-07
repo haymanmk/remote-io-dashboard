@@ -12,7 +12,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "types": [],
-    "composite": true,
+    "composite": false,
     "rootDir": "./src/panel"
   },
   "include": ["src/panel/**/*.ts", "src/panel/**/*.tsx"]
