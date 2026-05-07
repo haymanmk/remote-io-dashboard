@@ -19,3 +19,13 @@ yarn-error.log*
 
 .idea/
 .vscode/
+
+# Build outputs
+panel/
+
+# Yalc local SDK store
+.yalc/
+yalc.lock
+
+# Vite cache
+node_modules/.vite/
