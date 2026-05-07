@@ -21,7 +21,7 @@ yarn-error.log*
 .vscode/
 
 # Build outputs
-panel/
+/panel/
 
 # Yalc local SDK store
 .yalc/
